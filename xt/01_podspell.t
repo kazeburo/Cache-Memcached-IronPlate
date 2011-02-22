@@ -9,3 +9,4 @@ __DATA__
 Masahiro Nagano
 kazeburo {at} gmail.com
 Cache::Memcached::IronPlate
+memcached
