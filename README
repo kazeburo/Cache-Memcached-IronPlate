@@ -1,0 +1,27 @@
+This is Perl module Cache::Memcached::IronPlate.
+
+INSTALLATION
+
+Cache::Memcached::IronPlate installation is straightforward. If your CPAN shell is set up,
+you should just be able to do
+
+    % cpan Cache::Memcached::IronPlate
+
+Download it, unpack it, then build it as per the usual:
+
+    % perl Makefile.PL
+    % make && make test
+
+Then install it:
+
+    % make install
+
+DOCUMENTATION
+
+Cache::Memcached::IronPlate documentation is available as in POD. So you can do:
+
+    % perldoc Cache::Memcached::IronPlate
+
+to read the documentation online with your favorite pager.
+
+Masahiro Nagano
