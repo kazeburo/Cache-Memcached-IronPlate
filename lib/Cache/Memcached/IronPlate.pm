@@ -11,9 +11,6 @@ use List::Util qw//;
 use POSIX qw//;
 use Encode;
 use overload;
-use Class::Accessor::Lite (
-    ro  => [ qw(cache distribution_num duplication_num distribution_id) ],
-);
 
 our $VERSION = '0.01';
 
@@ -25,20 +22,20 @@ sub new {
         @_
     );
     croak('cache value should be object.') unless blessed $args{cache};
-    $args{distribution_id} = int(rand($args{distribution_num})) + 1;
+#    $args{distribution_id} = int(rand($args{distribution_num})) + 1;
     bless \%args, $class;
 }
 
 sub _is_distribution {
     my $key = shift;
     return unless $key;
-    $key =~ m/:distribute$/;
+    $key =~ m/:dist$/;
 }
 
 sub _is_duplication {
     my $key = shift;
     return unless $key;
-    $key =~ m/:duplicate$/;
+    $key =~ m/:dup$/;
 }
 
 sub _safekey {
@@ -57,7 +54,7 @@ sub _safekey {
     $key = Encode::encode_utf8($key) if Encode::is_utf8($key);
     
     my $suffix='';
-    if ( $key =~ m!(:distribute|:duplicate)$! ) {
+    if ( $key =~ m!(:dist|:dup)$! ) {
         $key = $`;
         $suffix = $1;
     }
@@ -73,22 +70,23 @@ sub get {
     my $self = shift;
     my $key = _safekey(shift);
     if ( _is_distribution($key) ) {
-        $key .= ":" . $self->distribution_id;
+        my $rand = int(rand($self->{distribution_num})) + 1;
+        $key .= ":" . $rand;
     }
     elsif ( _is_duplication($key) ) {
         return $self->_get_duplicate($key);
     }
-    $self->cache->get( $key ); 
+    $self->{cache}->get( $key ); 
 }
 
 sub _get_duplicate {
     my $self = shift;
     my $key = shift;
 
-    my $check_num = POSIX::ceil( $self->duplication_num / 2 );
+    my $check_num = POSIX::ceil( $self->{duplication_num} / 2 );
 
-    my @keys = map { $key . ":$_" } 1..$self->duplication_num;
-    my $result = $self->cache->get_multi(@keys);
+    my @keys = map { $key . ":$_" } 1..$self->{duplication_num};
+    my $result = $self->{cache}->get_multi(@keys);
   
     my %result;
     map { $result{$_}++ } values %$result;
@@ -105,7 +103,8 @@ sub get_multi {
         Carp::croak 'undefined key' if ! defined $key;
 
         my $safekey = _safekey($key);
-        $safekey .= ":" . $self->distribution_id if _is_distribution($safekey);
+        my $rand = int(rand($self->{distribution_num})) + 1;
+        $safekey .= ":" . $rand if _is_distribution($safekey);
         $safekey{$safekey} = $key;
 
         if ( _is_duplication($safekey) ) {
@@ -116,7 +115,7 @@ sub get_multi {
         push @keys, $safekey;        
     }
 
-    my $memd = $self->cache;
+    my $memd = $self->{cache};
 
     my %result;
     while( my @spliced_keys = splice( @keys, 0, 1000 ) ) {
@@ -140,16 +139,16 @@ sub get_multi {
 sub set {
     my $self = shift;
     my $key = _safekey(shift);
-    my $memd = $self->cache;
+    my $memd = $self->{cache};
     if ( _is_distribution($key) ) {
-        for ( 1..$self->distribution_num ) {
+        for ( 1..$self->{distribution_num} ) {
             my $spread_key = $key . ":" . $_;
             $memd->set($spread_key, @_);
         }
         return 1;
     }
     elsif ( _is_duplication($key) ) {
-        for ( 1..$self->duplication_num ) {
+        for ( 1..$self->{duplication_num} ) {
             my $spread_key = $key . ":" . $_;
             $memd->set($spread_key, @_);
         }
@@ -164,7 +163,7 @@ sub add {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "add"';
     }
-    $self->cache->add( $key, @_ );
+    $self->{cache}->add( $key, @_ );
 }
 
 sub replace {
@@ -173,7 +172,7 @@ sub replace {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "replace"';
     }
-    $self->cache->replace( $key, @_ );
+    $self->{cache}->replace( $key, @_ );
 }
 
 sub append {
@@ -182,7 +181,7 @@ sub append {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "append"';
     }
-    $self->cache->append( $key, @_ );
+    $self->{cache}->append( $key, @_ );
 }
 
 sub prepend {
@@ -191,7 +190,7 @@ sub prepend {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "prepend"';
     }
-    $self->cache->prepend( $key, @_ );
+    $self->{cache}->prepend( $key, @_ );
 }
 
 sub incr {
@@ -200,7 +199,7 @@ sub incr {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "incr"';
     }
-    $self->cache->incr( $key, @_ );
+    $self->{cache}->incr( $key, @_ );
 }
 
 sub counter {
@@ -210,7 +209,7 @@ sub counter {
         Carp::croak 'distribution/duplication keys are not suppoted in "counter"';
     }
     
-    my $memd = $self->cache;
+    my $memd = $self->{cache};
     my $result = $memd->incr( $key, @_ );
     if ( defined $result && ! $result ) {
         my $init = shift || 1;
@@ -228,22 +227,22 @@ sub decr {
     if ( _is_distribution($key) || _is_duplication($key) ) {
         Carp::croak 'distribution/duplication keys are not suppoted in "decr"';
     }
-    $self->cache->decr( $key, @_ );
+    $self->{cache}->decr( $key, @_ );
 }
 
 sub delete {
     my $self = shift;
     my $key = _safekey(shift);
-    my $memd = $self->cache;
+    my $memd = $self->{cache};
     if ( _is_distribution($key) ) {
-        for ( 1..$self->distribution_num ) {
+        for ( 1..$self->{distribution_num} ) {
             my $spread_key = $key . ":" . $_;
             $memd->delete($spread_key);
         }
         return 1;
     }
     elsif ( _is_duplication($key) ) {
-        for ( 1..$self->duplication_num ) {
+        for ( 1..$self->{duplication_num} ) {
             my $spread_key = $key . ":" . $_;
             $memd->delete($spread_key);
         }
@@ -284,7 +283,7 @@ Cache::Memcached::IronPlate - Best practices for Cache::Memcached
 
 =head1 DESCRIPTION
 
-Cache::Memcached::IronPlate is best practices for Cache::Memcached
+Cache::Memcached::IronPlate is best practices for Cache::Memcached(::Fast)
 
 =head1 FEATURES
 
@@ -301,9 +300,9 @@ Cache::Memcached::IronPlate is best practices for Cache::Memcached
 =item キャッシュ分散
 
 設定情報など、比較的変化が少なく、多くのページで読まれるキャッシュは自動的に分散をします
-分散するkeyには「:distribute」を付加します
+分散するkeyには「:dist」を付加します
 
-  $memd->set("mypref:distribute")
+  $memd->set("mypref:dist")
 
 内部的には、:common:${num} などとさらにキーを追加して、分散されるようにします。
 ${num}はデフォルト20です。変更するには、インスタンス作成時に distribution_num を設定します
@@ -319,9 +318,9 @@ ${num}はデフォルト20です。変更するには、インスタンス作成
 
 特定のmemcachedサーバに接続ができない状態になるとセッションが作成できず、
 特定のユーザのみログインができないなどの状態がおこります。
-keyの名前に「:duplicate」を付与すると、distribution と同じように自動的にキャッシュを複製します。
+keyの名前に「:dup」を付与すると、distribution と同じように自動的にキャッシュを複製します。
 
-内部的には、:duplicate:${num} などとさらにキーを追加して、複製されるようにします。
+内部的には、:dup:${num} などとさらにキーを追加して、複製されるようにします。
 ${num}はデフォルト3です。インスタンス作成時に duplication_num を設定します
 
   my $memd = Cache::Memcached::IronPlate->new(
