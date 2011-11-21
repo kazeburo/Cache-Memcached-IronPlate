@@ -121,4 +121,12 @@ ok( ! $memd->get("spread:dist") );
 
 $memd->can('remove');
 
+
+
+subtest 'cache args required' => sub {
+     eval { Cache::Memcached::IronPlate->new() } ;
+     like($@ ,qr/^cache value should be object/);
+};
+
+
 done_testing();

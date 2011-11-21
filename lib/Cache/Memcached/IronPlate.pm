@@ -21,7 +21,7 @@ sub new {
         duplication_num => 3,
         @_
     );
-    croak('cache value should be object.') unless blessed $args{cache};
+    Carp::croak('cache value should be object.') unless blessed $args{cache};
 #    $args{distribution_id} = int(rand($args{distribution_num})) + 1;
     bless \%args, $class;
 }
