@@ -54,9 +54,9 @@ sub _safekey {
     $key = Encode::encode_utf8($key) if Encode::is_utf8($key);
     
     my $suffix='';
-    if ( $key =~ m!(:dist|:dup)$! ) {
-        $key = $`;
-        $suffix = $1;
+    if ( $key =~ m!(.*)(:dist|:dup)$! ) {
+        $key = $1;
+        $suffix = $2;
     }
     $key = uri_escape($key,"\x00-\x20\x7f-\xff");
     if ( length($key) > 200 ) {
